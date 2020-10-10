@@ -2,11 +2,18 @@ import { Box, Button, Flex, Link } from "@chakra-ui/core";
 import React from "react";
 import NextLink from "next/link";
 import { useLogoutMutation, useMeQuery } from "../generated/graphql";
+import { isServer } from "../utils/isServer";
 
 interface NavBarProps {}
 
 export const NavBar: React.FC<NavBarProps> = ({}) => {
-  const [{ data, fetching }] = useMeQuery();
+  // опция pause позволяет не выполнять запрос, если она = true
+  // в данном случае мы не хотим выполнять этот запрос на сервере
+  // т.к. там нет куки и запрос всегда возвращает null, т.е. он лишний
+  const [{ data, fetching }] = useMeQuery({
+    pause: isServer(),
+  });
+
   const [{ fetching: logoutFething }, logout] = useLogoutMutation();
   let body = null;
   if (fetching) {
