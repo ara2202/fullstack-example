@@ -2,7 +2,6 @@ import {
   Resolver,
   Mutation,
   Arg,
-  InputType,
   Field,
   Ctx,
   ObjectType,
@@ -13,16 +12,8 @@ import { User } from "../entities/User";
 import argon2 from "argon2";
 import { EntityManager } from "@mikro-orm/postgresql";
 import { COOKIE_NAME } from "../constants";
-
-// альтернатива указанию @Arg по отдельности
-@InputType()
-class UsernamePasswordInput {
-  @Field()
-  username: string;
-
-  @Field()
-  password: string;
-}
+import { UsernamePasswordInput } from "./UsernamePasswordInput";
+import { validateRegister } from "../utils/validateRegister";
 
 @ObjectType()
 class FieldError {
@@ -44,6 +35,13 @@ class UserResponse {
 
 @Resolver()
 export class UserResolver {
+  @Mutation(() => Boolean)
+  async forgotPassword(@Arg("email") email: string, @Ctx() { em }: MyContext) {
+    //const user = await em.findOne(User, {email});
+    console.log("email", email);
+    console.log("em", em);
+    return true;
+  }
   @Query(() => User, { nullable: true })
   async me(@Ctx() { em, req }: MyContext) {
     // you are not logged in
@@ -58,27 +56,14 @@ export class UserResolver {
     @Arg("options") options: UsernamePasswordInput, // type inferred
     @Ctx() { em }: MyContext
   ): Promise<UserResponse> {
-    if (options.username.length <= 2) {
+    const errors = validateRegister(options);
+
+    if (errors) {
       return {
-        errors: [
-          {
-            field: "username",
-            message: "username should contain at least 3 characters",
-          },
-        ],
+        errors,
       };
     }
 
-    if (options.password.length <= 5) {
-      return {
-        errors: [
-          {
-            field: "password",
-            message: "password should contain at least 5 characters",
-          },
-        ],
-      };
-    }
     const hashedPassword = await argon2.hash(options.password);
     // этот код вызывает проблемы при ошибке
     // const user = em.create(User, {
@@ -93,6 +78,7 @@ export class UserResolver {
         .insert({
           username: options.username,
           password: hashedPassword,
+          email: options.email,
           created_at: new Date(),
           updated_at: new Date(),
         })
@@ -107,7 +93,7 @@ export class UserResolver {
           errors: [
             {
               field: "username",
-              message: "username already exists",
+              message: "username / email already exists",
             },
           ],
         };
@@ -120,21 +106,27 @@ export class UserResolver {
   /* --- LOGIN --- */
   @Mutation(() => UserResponse)
   async login(
-    @Arg("options") options: UsernamePasswordInput, // type inferred
+    @Arg("usernameOrEmail") usernameOrEmail: string,
+    @Arg("password") password: string,
     @Ctx() { em, req }: MyContext
   ): Promise<UserResponse> {
-    const user = await em.findOne(User, { username: options.username });
+    const user = await em.findOne(
+      User,
+      usernameOrEmail.includes("@")
+        ? { email: usernameOrEmail }
+        : { username: usernameOrEmail }
+    );
     if (!user) {
       return {
         errors: [
           {
-            field: "username",
+            field: "usernameOrEmail",
             message: "that username doesn't exist",
           },
         ],
       };
     }
-    const valid = await argon2.verify(user.password, options.password);
+    const valid = await argon2.verify(user.password, password);
     if (!valid) {
       return {
         errors: [
