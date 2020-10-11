@@ -1,6 +1,4 @@
 import "reflect-metadata";
-import { MikroORM } from "@mikro-orm/core";
-import microConfig from "./mikro-orm.config";
 import express from "express";
 import { ApolloServer } from "apollo-server-express";
 import { buildSchema } from "type-graphql";
@@ -13,10 +11,22 @@ import session from "express-session";
 import connectRedis from "connect-redis";
 import { COOKIE_NAME, IS_PROD } from "./constants";
 import cors from "cors";
+import { createConnection } from "typeorm";
+import { Post } from "./entities/Post";
+import { User } from "./entities/User";
 
 const main = async () => {
-  const orm = await MikroORM.init(microConfig); // подключаемся к БД с конфигом
-  await orm.getMigrator().up(); // запускаем миграции
+  const conn = await createConnection({
+    type: "postgres",
+    database: "lireddit2",
+    username: "postgres",
+    password: "p0$tgre$",
+    logging: true,
+    synchronize: true, // it will create & update tables for you, so you don't need to run migrations
+    entities: [Post, User],
+  });
+
+  console.log(conn);
 
   const app = express();
 
@@ -54,7 +64,7 @@ const main = async () => {
       resolvers: [HelloResolver, PostResolver, UserResolver],
       validate: false,
     }),
-    context: ({ req, res }) => ({ em: orm.em, req, res, redis }),
+    context: ({ req, res }) => ({ req, res, redis }),
   });
 
   apolloServer.applyMiddleware({
@@ -65,13 +75,6 @@ const main = async () => {
   app.listen(4000, () => {
     console.log("server started on localhost:4000");
   });
-
-  //const post = orm.em.create(Post, { title: "my first post" }); // creates just a simple post object
-  //await orm.em.persistAndFlush(post); // write post to DB
-  //console.log("-----------SQL2----------------");
-  //await orm.em.nativeInsert(Post, { title: "second post" });
-  //const posts = await orm.em.find(Post, {});
-  //console.log(posts);
 };
 
 main().catch((e) => console.error(e));

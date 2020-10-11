@@ -11,11 +11,11 @@ import { MyContext } from "src/types";
 import { User } from "../entities/User";
 import argon2 from "argon2";
 import { v4 } from "uuid";
-import { EntityManager } from "@mikro-orm/postgresql";
 import { COOKIE_NAME, FORGOT_PASS_PREFIX } from "../constants";
 import { UsernamePasswordInput } from "./UsernamePasswordInput";
 import { validateRegister } from "../utils/validateRegister";
 import { sendEmail } from "../utils/sendEmail";
+import { getConnection } from "typeorm";
 
 @ObjectType()
 class FieldError {
@@ -42,7 +42,7 @@ export class UserResolver {
   async changePassword(
     @Arg("token") token: string,
     @Arg("newPassword") newPassword: string,
-    @Ctx() { em, redis, req }: MyContext
+    @Ctx() { redis, req }: MyContext
   ): Promise<UserResponse> {
     if (newPassword.length <= 5) {
       return {
@@ -66,8 +66,8 @@ export class UserResolver {
         ],
       };
     }
-
-    const user = await em.findOne(User, { id: parseInt(userId, 10) });
+    const userIdNum = parseInt(userId, 10);
+    const user = await User.findOne(userIdNum);
     if (!user) {
       return {
         errors: [
@@ -79,8 +79,10 @@ export class UserResolver {
       };
     }
 
-    user.password = await argon2.hash(newPassword);
-    await em.persistAndFlush(user);
+    await User.update(
+      { id: userIdNum },
+      { password: await argon2.hash(newPassword) }
+    );
 
     await redis.del(tokenKey);
 
@@ -93,9 +95,9 @@ export class UserResolver {
   @Mutation(() => Boolean)
   async forgotPassword(
     @Arg("email") email: string,
-    @Ctx() { em, redis }: MyContext
+    @Ctx() { redis }: MyContext
   ) {
-    const user = await em.findOne(User, { email });
+    const user = await User.findOne({ where: { email } }); // email isn't the primary key, so we have to use "where"
     if (!user) {
       return true;
     }
@@ -116,19 +118,19 @@ export class UserResolver {
 
     return true;
   }
+
+  /* --- ME --- */
   @Query(() => User, { nullable: true })
-  async me(@Ctx() { em, req }: MyContext) {
+  me(@Ctx() { req }: MyContext) {
     // you are not logged in
     if (!req.session.id) return null;
-    const user = await em.findOne(User, { id: req.session.userId });
-    return user;
+    return User.findOne(req.session.userId);
   }
 
   /* --- REGISTER --- */
   @Mutation(() => UserResponse)
   async register(
-    @Arg("options") options: UsernamePasswordInput, // type inferred
-    @Ctx() { em }: MyContext
+    @Arg("options") options: UsernamePasswordInput
   ): Promise<UserResponse> {
     const errors = validateRegister(options);
 
@@ -139,25 +141,25 @@ export class UserResolver {
     }
 
     const hashedPassword = await argon2.hash(options.password);
-    // этот код вызывает проблемы при ошибке
-    // const user = em.create(User, {
-    //   username: options.username,
-    //   password: hashedPassword,
-    // });
+
     let user;
     try {
-      const result = await (em as EntityManager)
-        .createQueryBuilder(User)
-        .getKnexQuery()
-        .insert({
+      // code below is just eqiv of writing:
+      //  User.create({...options}).save()
+      const result = await getConnection()
+        .createQueryBuilder()
+        .insert()
+        .into(User)
+        .values({
           username: options.username,
           password: hashedPassword,
           email: options.email,
-          created_at: new Date(),
-          updated_at: new Date(),
+          // createdAt & updatedAt are handled automatically by typeorm
         })
-        .returning("*");
-      user = result[0];
+        .returning("*")
+        .execute();
+
+      user = result.raw[0];
       // этот код вызывает проблемы при ошибке
       //await em.persistAndFlush(user);
     } catch (err) {
@@ -177,18 +179,18 @@ export class UserResolver {
     }
     return { user };
   }
+
   /* --- LOGIN --- */
   @Mutation(() => UserResponse)
   async login(
     @Arg("usernameOrEmail") usernameOrEmail: string,
     @Arg("password") password: string,
-    @Ctx() { em, req }: MyContext
+    @Ctx() { req }: MyContext
   ): Promise<UserResponse> {
-    const user = await em.findOne(
-      User,
+    const user = await User.findOne(
       usernameOrEmail.includes("@")
-        ? { email: usernameOrEmail }
-        : { username: usernameOrEmail }
+        ? { where: { email: usernameOrEmail } }
+        : { where: { username: usernameOrEmail } }
     );
     if (!user) {
       return {
