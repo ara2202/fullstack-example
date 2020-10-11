@@ -10,10 +10,12 @@ import {
 import { MyContext } from "src/types";
 import { User } from "../entities/User";
 import argon2 from "argon2";
+import { v4 } from "uuid";
 import { EntityManager } from "@mikro-orm/postgresql";
-import { COOKIE_NAME } from "../constants";
+import { COOKIE_NAME, FORGOT_PASS_PREFIX } from "../constants";
 import { UsernamePasswordInput } from "./UsernamePasswordInput";
 import { validateRegister } from "../utils/validateRegister";
+import { sendEmail } from "../utils/sendEmail";
 
 @ObjectType()
 class FieldError {
@@ -35,11 +37,83 @@ class UserResponse {
 
 @Resolver()
 export class UserResolver {
+  /* --- CHANGE PASSWORD --- */
+  @Mutation(() => UserResponse)
+  async changePassword(
+    @Arg("token") token: string,
+    @Arg("newPassword") newPassword: string,
+    @Ctx() { em, redis, req }: MyContext
+  ): Promise<UserResponse> {
+    if (newPassword.length <= 5) {
+      return {
+        errors: [
+          {
+            field: "newPassword",
+            message: "password should contain at least 5 characters",
+          },
+        ],
+      };
+    }
+    const tokenKey = FORGOT_PASS_PREFIX + token;
+    const userId = await redis.get(tokenKey);
+    if (!userId) {
+      return {
+        errors: [
+          {
+            field: "token",
+            message: "token expired",
+          },
+        ],
+      };
+    }
+
+    const user = await em.findOne(User, { id: parseInt(userId, 10) });
+    if (!user) {
+      return {
+        errors: [
+          {
+            field: "token",
+            message: "user no longer exists",
+          },
+        ],
+      };
+    }
+
+    user.password = await argon2.hash(newPassword);
+    await em.persistAndFlush(user);
+
+    await redis.del(tokenKey);
+
+    // auto log-in user after changing password
+    req.session.userId = user.id;
+    return { user };
+  }
+
+  /* --- FORGOT PASSWORD --- */
   @Mutation(() => Boolean)
-  async forgotPassword(@Arg("email") email: string, @Ctx() { em }: MyContext) {
-    //const user = await em.findOne(User, {email});
-    console.log("email", email);
-    console.log("em", em);
+  async forgotPassword(
+    @Arg("email") email: string,
+    @Ctx() { em, redis }: MyContext
+  ) {
+    const user = await em.findOne(User, { email });
+    if (!user) {
+      return true;
+    }
+
+    const token = v4();
+
+    await redis.set(
+      FORGOT_PASS_PREFIX + token,
+      user.id,
+      "ex",
+      1000 * 60 * 60 * 24 * 3
+    );
+
+    await sendEmail(
+      email,
+      `<a href="http://localhost:3000/change-password/${token}">reset password</a>`
+    );
+
     return true;
   }
   @Query(() => User, { nullable: true })
