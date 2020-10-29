@@ -51,16 +51,45 @@ export class PostResolver {
     // для этого они должны быть как-то отсортированы (по дате, id...)
   ): Promise<PaginatedPosts> {
     const realLimit = Math.min(50, limit);
-    const qb = getConnection()
-      .getRepository(Post)
-      .createQueryBuilder("p")
-      .orderBy('"createdAt"', "DESC") // Специфика Postgres, нужны двойные кавычки
-      .take(realLimit);
 
+    const replacements: any[] = [realLimit];
     if (cursor) {
-      qb.where('"createdAt" < :cursor', { cursor: new Date(parseInt(cursor)) });
+      replacements.push(new Date(parseInt(cursor)));
     }
-    const posts = await qb.getMany();
+    const posts = await getConnection().query(
+      `
+        select p.*, 
+        json_build_object(
+          'id', u.id,
+          'username', u.username,
+          'email', u.email,
+          'createdAt', u."createdAt",
+          'updatedAt', u."updatedAt"
+          ) author 
+        from post p
+        inner join public.user u on u.id = p."authorId"
+        ${cursor ? `where p."createdAt" < $2` : ""}
+        order by p."createdAt" DESC
+        limit $1
+    `,
+      replacements
+    );
+
+    // const qb = getConnection()
+    //   .getRepository(Post)
+    //   .createQueryBuilder("p")
+    //   .innerJoinAndSelect("p.author", "a", 'a.id = p."authorId"')
+    //   .orderBy('"createdAt"', "DESC") // Специфика Postgres, нужны двойные кавычки, если в поле есть camelCase
+    //   // кроме того, если есть объединение таблиц с одинаковыми полями, то нужно
+    //   // указывать откуда берется поле (p."createdAt")
+    //   .take(realLimit);
+
+    // if (cursor) {
+    //   qb.where('"createdAt" < :cursor', {
+    //     cursor: new Date(parseInt(cursor)),
+    //   });
+    // }
+    //const posts = await qb.getMany();
     return { posts, hasMore: posts.length === realLimit };
   }
   // get single post
