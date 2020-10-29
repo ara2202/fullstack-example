@@ -14,6 +14,7 @@ import cors from "cors";
 import { createConnection } from "typeorm";
 import { Post } from "./entities/Post";
 import { User } from "./entities/User";
+import path from "path";
 
 const main = async () => {
   const conn = await createConnection({
@@ -21,12 +22,16 @@ const main = async () => {
     database: "lireddit2",
     username: "postgres",
     password: "p0$tgre$",
+    migrations: [path.join(__dirname, "./migrations/*")],
     logging: true,
     synchronize: true, // it will create & update tables for you, so you don't need to run migrations
     entities: [Post, User],
   });
 
-  console.log(conn);
+  await conn.runMigrations();
+
+  // rerun
+  //await Post.delete({});
 
   const app = express();
 
