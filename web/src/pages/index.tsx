@@ -1,7 +1,8 @@
-import { Heading, Box, Text, Stack, Button, Flex } from "@chakra-ui/core";
+import { Stack, Button, Flex } from "@chakra-ui/core";
 import { withUrqlClient } from "next-urql";
 import React, { useState } from "react";
 import { Layout } from "../components/Layout";
+import { PostComponent } from "../components/Post";
 import { usePostsQuery } from "../generated/graphql";
 import { createUrqlClient } from "../utils/createUrqlClient";
 
@@ -26,15 +27,8 @@ const Index = () => {
         <div>...loading</div>
       ) : (
         <Stack spacing={8}>
-          {data?.posts.posts.map(({ id, title, textSnippet, author }) => (
-            <Box key={id} p={5} shadow="md" borderWidth="1px">
-              <Flex justifyContent="space-between">
-                <Heading fontSize="xl">{title}</Heading>
-                {author.username}
-              </Flex>
-              <Text mt={4}>{textSnippet}</Text>
-              {title}
-            </Box>
+          {data?.posts.posts.map((post) => (
+            <PostComponent post={post} />
           ))}
         </Stack>
       )}
