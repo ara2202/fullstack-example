@@ -31,5 +31,5 @@ yarn-error.log*
 
 # vercel
 .vercel
+server/dump.rdb
 dump.rdb
-/server/dumb.rdb
