@@ -30,10 +30,12 @@ export const NavBar: React.FC<NavBarProps> = ({}) => {
     );
   } else {
     body = (
-      <Flex>
+      <Flex align="center">
         <Box mr={4}>{data.me.username}</Box>
         <NextLink href="/create-post">
-          <Link mr={4}>Create post</Link>
+          <Button variantColor="teal" size="sm" mr={4}>
+            Create post
+          </Button>
         </NextLink>
         <Button
           onClick={() => logout()}
@@ -46,7 +48,18 @@ export const NavBar: React.FC<NavBarProps> = ({}) => {
     );
   }
   return (
-    <Flex position="sticky" top={0} zIndex={20} bg="tomato" p={4} ml={"auto"}>
+    <Flex
+      align="center"
+      position="sticky"
+      top={0}
+      zIndex={20}
+      bg="tomato"
+      p={4}
+      ml={"auto"}
+    >
+      <NextLink href="/">
+        <Link>Home</Link>
+      </NextLink>
       <Box ml={"auto"}>{body}</Box>
     </Flex>
   );
