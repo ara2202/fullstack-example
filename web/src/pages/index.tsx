@@ -28,7 +28,7 @@ const Index = () => {
       ) : (
         <Stack spacing={8}>
           {data?.posts.posts.map((post) => (
-            <PostComponent post={post} />
+            <PostComponent key={post.id} post={post} />
           ))}
         </Stack>
       )}

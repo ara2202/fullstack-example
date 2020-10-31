@@ -62,7 +62,7 @@ export class PostResolver {
       },
     });
 
-    if (userVote?.value !== realValue) {
+    if (userVote && userVote.value !== realValue) {
       // user has voted, but changed his mind
       await getConnection().transaction(async (tm) => {
         await tm.query(
@@ -132,15 +132,20 @@ export class PostResolver {
   @Query(() => PaginatedPosts)
   async posts(
     @Arg("limit", () => Int) limit: number,
-    @Arg("cursor", () => String, { nullable: true }) cursor: string | null
-    // идея с курсором - что мы берем посты, после того, на который указывает курсор.
-    // для этого они должны быть как-то отсортированы (по дате, id...)
-  ): Promise<PaginatedPosts> {
+    @Arg("cursor", () => String, { nullable: true }) cursor: string | null,
+    @Ctx() { req }: MyContext
+  ): // идея с курсором - что мы берем посты, после того, на который указывает курсор.
+  // для этого они должны быть как-то отсортированы (по дате, id...)
+  Promise<PaginatedPosts> {
     const realLimit = Math.min(50, limit);
+    const userId = req.session.userId;
 
     const replacements: any[] = [realLimit];
+    userId && replacements.push(userId);
+    let cursorIdx = 3;
     if (cursor) {
       replacements.push(new Date(parseInt(cursor)));
+      cursorIdx = replacements.length;
     }
     const posts = await getConnection().query(
       `
@@ -151,10 +156,15 @@ export class PostResolver {
           'email', u.email,
           'createdAt', u."createdAt",
           'updatedAt', u."updatedAt"
-          ) author 
+          ) author, 
+        ${
+          req.session.userId
+            ? `(select value from up_doot where "userId" = $2 and "postId" = p.id) "voteStatus"`
+            : 'null as "voteStatus"'
+        } 
         from post p
         inner join public.user u on u.id = p."authorId"
-        ${cursor ? `where p."createdAt" < $2` : ""}
+        ${cursor ? `where p."createdAt" < ${cursorIdx}` : ""}
         order by p."createdAt" DESC
         limit $1
     `,

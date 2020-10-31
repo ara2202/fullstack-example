@@ -1,5 +1,4 @@
 import { Box, Flex, Heading, IconButton, Text } from "@chakra-ui/core";
-import { title } from "process";
 import React from "react";
 import { PostSnippetFragment, useVoteMutation } from "../generated/graphql";
 
@@ -8,7 +7,7 @@ interface PostProps {
 }
 
 export const PostComponent: React.FC<PostProps> = ({
-  post: { id, author, textSnippet, points },
+  post: { id, author, textSnippet, points, title, voteStatus },
 }) => {
   const [, vote] = useVoteMutation();
   return (
@@ -18,14 +17,19 @@ export const PostComponent: React.FC<PostProps> = ({
         {author.username}
       </Flex>
       <Text mt={4}>{textSnippet}</Text>
-      {title}
       <br />
       <IconButton
         aria-label="upvote a post"
         icon="chevron-up"
         size="sm"
+        variantColor={voteStatus === 1 ? "green" : undefined}
         mr={2}
-        onClick={() => vote({ value: 1, postId: id })}
+        onClick={async () => {
+          if (voteStatus === 1) {
+            return;
+          }
+          await vote({ value: 1, postId: id });
+        }}
       />
       {points}
       <IconButton
@@ -33,7 +37,13 @@ export const PostComponent: React.FC<PostProps> = ({
         icon="chevron-down"
         size="sm"
         ml={2}
-        onClick={() => vote({ value: -1, postId: id })}
+        variantColor={voteStatus === -1 ? "red" : undefined}
+        onClick={async () => {
+          if (voteStatus === -1) {
+            return;
+          }
+          vote({ value: -1, postId: id });
+        }}
       />
     </Box>
   );

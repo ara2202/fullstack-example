@@ -1,5 +1,6 @@
 import { cacheExchange, Resolver } from "@urql/exchange-graphcache";
 import Router from "next/router";
+import gql from "graphql-tag";
 import {
   dedupExchange,
   Exchange,
@@ -14,6 +15,7 @@ import {
   MeDocument,
   MeQuery,
   RegisterMutation,
+  VoteMutationVariables,
 } from "../generated/graphql";
 import { betterUpdateQuery } from "./betterUpdateQuery";
 
@@ -140,6 +142,45 @@ export const createUrqlClient = (ssrExchange: any) => ({
       },
       updates: {
         Mutation: {
+          vote: (_result, args, cache, info) => {
+            // здесь мы обновляем кусочек кеша, который содержит votes
+            // один из методов, второй - возвращать актуальное значение, а не boolean
+            // вероятно в данном случае предпочтительнее второй, чтобы получать актуальное значение, а не просто +1 / -1
+            // но здесь просто в качестве примера
+            const { postId, value } = args as VoteMutationVariables;
+            const curVoteData = cache.readFragment(
+              gql`
+                fragment _ on Post {
+                  id
+                  points
+                  voteStatus
+                }
+              `,
+              { id: postId } as any
+            );
+            if (curVoteData) {
+              if (curVoteData.voteStatus === value) {
+                return;
+              }
+              const newPoints =
+                (curVoteData.points as number) +
+                (!curVoteData.voteStatus ? 1 : 2) * value;
+              cache.writeFragment(
+                gql`
+                  fragment __ on Post {
+                    id
+                    points
+                    voteStatus
+                  }
+                `,
+                {
+                  id: postId,
+                  points: newPoints,
+                  voteStatus: value,
+                } as any
+              );
+            }
+          },
           createPost: (_result, _, cache, __) => {
             // когда создается пост - запрос (Query) posts инвалидируется
             // и перезапрашивается с сервера
