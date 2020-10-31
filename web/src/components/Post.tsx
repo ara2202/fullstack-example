@@ -1,6 +1,10 @@
 import { Box, Flex, Heading, IconButton, Link, Text } from "@chakra-ui/core";
 import React from "react";
-import { PostSnippetFragment, useVoteMutation } from "../generated/graphql";
+import {
+  PostSnippetFragment,
+  useDeletePostMutation,
+  useVoteMutation,
+} from "../generated/graphql";
 import NextLink from "next/link";
 
 interface PostProps {
@@ -11,6 +15,8 @@ export const PostComponent: React.FC<PostProps> = ({
   post: { id, author, textSnippet, points, title, voteStatus },
 }) => {
   const [, vote] = useVoteMutation();
+  const [, deletePost] = useDeletePostMutation();
+  if (!id) return null;
   return (
     <Box key={id} p={5} shadow="md" borderWidth="1px">
       <Flex justifyContent="space-between">
@@ -23,33 +29,43 @@ export const PostComponent: React.FC<PostProps> = ({
       </Flex>
       <Text mt={4}>{textSnippet}</Text>
       <br />
-      <IconButton
-        aria-label="upvote a post"
-        icon="chevron-up"
-        size="sm"
-        variantColor={voteStatus === 1 ? "green" : undefined}
-        mr={2}
-        onClick={async () => {
-          if (voteStatus === 1) {
-            return;
-          }
-          await vote({ value: 1, postId: id });
-        }}
-      />
-      {points}
-      <IconButton
-        aria-label="downvote a post"
-        icon="chevron-down"
-        size="sm"
-        ml={2}
-        variantColor={voteStatus === -1 ? "red" : undefined}
-        onClick={async () => {
-          if (voteStatus === -1) {
-            return;
-          }
-          vote({ value: -1, postId: id });
-        }}
-      />
+      <Flex justifyContent="space-between" align="center">
+        <Box>
+          <IconButton
+            aria-label="upvote a post"
+            icon="chevron-up"
+            size="sm"
+            variantColor={voteStatus === 1 ? "green" : undefined}
+            mr={2}
+            onClick={async () => {
+              if (voteStatus === 1) {
+                return;
+              }
+              await vote({ value: 1, postId: id });
+            }}
+          />
+          {points}
+          <IconButton
+            aria-label="downvote a post"
+            icon="chevron-down"
+            size="sm"
+            ml={2}
+            variantColor={voteStatus === -1 ? "red" : undefined}
+            onClick={async () => {
+              if (voteStatus === -1) {
+                return;
+              }
+              vote({ value: -1, postId: id });
+            }}
+          />
+        </Box>
+        <IconButton
+          aria-label="delete post"
+          icon="delete"
+          variantColor="red"
+          onClick={() => deletePost({ id })}
+        />
+      </Flex>
     </Box>
   );
 };

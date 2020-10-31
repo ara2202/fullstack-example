@@ -10,6 +10,7 @@ import {
 import { pipe, tap } from "wonka";
 
 import {
+  DeletePostMutationVariables,
   LoginMutation,
   LogoutMutation,
   MeDocument,
@@ -153,6 +154,11 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
         },
         updates: {
           Mutation: {
+            deletePost: (_result, args, cache, info) => {
+              const id = (args as DeletePostMutationVariables).id;
+              // этот вызов обнулит (=null) соотв-ий пост в кеше
+              cache.invalidate({ __typename: "Post", id });
+            },
             vote: (_result, args, cache, info) => {
               // здесь мы обновляем кусочек кеша, который содержит votes
               // один из методов, второй - возвращать актуальное значение, а не boolean

@@ -222,8 +222,27 @@ export class PostResolver {
 
   // delete post
   @Mutation(() => Boolean)
-  async deletePost(@Arg("id") id: number): Promise<boolean> {
+  @UseMiddleware(isAuth)
+  async deletePost(
+    @Arg("id", () => Int) id: number,
+    @Ctx() { req }: MyContext
+  ): Promise<boolean> {
+    // NOT Cascade way
+    // const post = await Post.findOne(id);
+    // if (!post) return false;
+    // if (post.authorId !== req.session.userId) throw new Error("not authorized");
+
+    // await UpDoot.delete({ postId: id });
+    // await Post.delete({ id });
+
+    // cascade way: PostgresSQL will automatically delete connected data
+    // we need to tell Postgress when to cascade in Updoot entity
+
+    const post = await Post.findOne(id);
+    if (!post) return false;
+    if (post.authorId !== req.session.userId) throw new Error("not authorized");
     await Post.delete(id);
+    //await Post.delete({ id, authorId: req.session.userId });
     return true;
   }
 }
