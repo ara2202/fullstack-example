@@ -1,0 +1,11 @@
+mutation UpdatePost($id: Int!, $title: String!, $text: String!) {
+  updatePost(id: $id, title: $title, text: $text) {
+    id
+    title
+    text
+    textSnippet
+    # Мы возвращаем title, text, textSnippet
+    # и URQL обновит эти значения за нас
+    # таким образом, нам не надо самим лазить в кеш и обновлять его
+  }
+}

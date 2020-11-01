@@ -1,9 +1,3 @@
-import { withUrqlClient } from "next-urql";
-import { useRouter } from "next/router";
-import React from "react";
-import { Layout } from "../../components/Layout";
-import { usePostQuery } from "../../generated/graphql";
-import { createUrqlClient } from "../../utils/createUrqlClient";
 import {
   Alert,
   AlertDescription,
@@ -13,17 +7,15 @@ import {
   Spinner,
   Text,
 } from "@chakra-ui/core";
+import { withUrqlClient } from "next-urql";
+import React from "react";
+import { EditAndDeleteButtons } from "../../components/EditAndDeleteButtons";
+import { Layout } from "../../components/Layout";
+import { createUrqlClient } from "../../utils/createUrqlClient";
+import { usePostIdFromUrl } from "../../utils/usePostIdFromUrl";
 
 const PostPage = () => {
-  const router = useRouter();
-  const postId = router.query.id;
-  const id = typeof postId === "string" ? parseInt(postId) : -1;
-  const [{ data, fetching }] = usePostQuery({
-    pause: id === -1,
-    variables: {
-      id,
-    },
-  });
+  const { data, fetching, postId } = usePostIdFromUrl();
 
   if (fetching) {
     return (
@@ -50,7 +42,8 @@ const PostPage = () => {
   return (
     <Layout>
       <Heading>{data.post.title}</Heading>
-      <Text>{data.post.text}</Text>
+      <Text mb={4}>{data.post.text}</Text>
+      <EditAndDeleteButtons authorId={data.post.author.id} postId={postId} />
     </Layout>
   );
 };

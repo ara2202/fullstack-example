@@ -1,11 +1,8 @@
 import { Box, Flex, Heading, IconButton, Link, Text } from "@chakra-ui/core";
-import React from "react";
-import {
-  PostSnippetFragment,
-  useDeletePostMutation,
-  useVoteMutation,
-} from "../generated/graphql";
 import NextLink from "next/link";
+import React from "react";
+import { PostSnippetFragment, useVoteMutation } from "../generated/graphql";
+import { EditAndDeleteButtons } from "./EditAndDeleteButtons";
 
 interface PostProps {
   post: PostSnippetFragment;
@@ -15,7 +12,7 @@ export const PostComponent: React.FC<PostProps> = ({
   post: { id, author, textSnippet, points, title, voteStatus },
 }) => {
   const [, vote] = useVoteMutation();
-  const [, deletePost] = useDeletePostMutation();
+
   if (!id) return null;
   return (
     <Box key={id} p={5} shadow="md" borderWidth="1px">
@@ -59,12 +56,7 @@ export const PostComponent: React.FC<PostProps> = ({
             }}
           />
         </Box>
-        <IconButton
-          aria-label="delete post"
-          icon="delete"
-          variantColor="red"
-          onClick={() => deletePost({ id })}
-        />
+        <EditAndDeleteButtons authorId={author.id} postId={id} />
       </Flex>
     </Box>
   );
