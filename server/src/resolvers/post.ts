@@ -1,5 +1,5 @@
 import { isAuth } from "../middleware/isAuth";
-import { MyContext } from "src/types";
+import { MyContext } from "../types";
 import {
   Arg,
   Ctx,
@@ -17,6 +17,7 @@ import {
 import { Post } from "../entities/Post";
 import { getConnection } from "typeorm";
 import { UpDoot } from "../entities/Updoot";
+import { User } from "../entities/User";
 
 @InputType()
 class PostInput {
@@ -41,6 +42,12 @@ export class PostResolver {
   @FieldResolver(() => String)
   textSnippet(@Root() root: Post) {
     return root.text.slice(0, 50);
+  }
+
+  @FieldResolver(() => User)
+  author(@Root() post: Post, @Ctx() { userLoader }: MyContext) {
+    // userLoader батчит все вызовы в 1 массив
+    return userLoader.load(post.authorId);
   }
 
   @Mutation(() => Boolean)
@@ -147,29 +154,46 @@ export class PostResolver {
       replacements.push(new Date(parseInt(cursor)));
       cursorIdx = replacements.length;
     }
+    // более новая версия запроса, где мы подтягиваем автора поста через FieldResolver
     const posts = await getConnection().query(
       `
         select p.*, 
-        json_build_object(
-          'id', u.id,
-          'username', u.username,
-          'email', u.email,
-          'createdAt', u."createdAt",
-          'updatedAt', u."updatedAt"
-          ) author, 
         ${
           req.session.userId
             ? `(select value from up_doot where "userId" = $2 and "postId" = p.id) "voteStatus"`
             : 'null as "voteStatus"'
         } 
         from post p
-        inner join public.user u on u.id = p."authorId"
         ${cursor ? `where p."createdAt" < ${cursorIdx}` : ""}
         order by p."createdAt" DESC
         limit $1
     `,
       replacements
     );
+
+    // const posts = await getConnection().query(
+    //   `
+    //     select p.*,
+    //     json_build_object(
+    //       'id', u.id,
+    //       'username', u.username,
+    //       'email', u.email,
+    //       'createdAt', u."createdAt",
+    //       'updatedAt', u."updatedAt"
+    //       ) author,
+    //     ${
+    //       req.session.userId
+    //         ? `(select value from up_doot where "userId" = $2 and "postId" = p.id) "voteStatus"`
+    //         : 'null as "voteStatus"'
+    //     }
+    //     from post p
+    //     inner join public.user u on u.id = p."authorId"
+    //     ${cursor ? `where p."createdAt" < ${cursorIdx}` : ""}
+    //     order by p."createdAt" DESC
+    //     limit $1
+    // `,
+    //   replacements
+    // );
 
     // const qb = getConnection()
     //   .getRepository(Post)
@@ -191,7 +215,9 @@ export class PostResolver {
   // get single post
   @Query(() => Post, { nullable: true })
   post(@Arg("id", () => Int) id: number): Promise<Post | undefined> {
-    return Post.findOne(id, { relations: ["author"] });
+    return Post.findOne(id);
+    // сделали через FieldResolver
+    //return Post.findOne(id, { relations: ["author"] });
   }
 
   // create post
