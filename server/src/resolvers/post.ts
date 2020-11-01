@@ -50,6 +50,21 @@ export class PostResolver {
     return userLoader.load(post.authorId);
   }
 
+  @FieldResolver(() => Int, { nullable: true })
+  async voteStatus(
+    @Root() post: Post,
+    @Ctx() { updootLoader, req }: MyContext
+  ) {
+    if (!req.session.userId) {
+      return null;
+    }
+    const updoot = await updootLoader.load({
+      postId: post.id,
+      userId: req.session.userId,
+    });
+    return updoot?.value ?? null;
+  }
+
   @Mutation(() => Boolean)
   @UseMiddleware(isAuth)
   async vote(
@@ -145,31 +160,43 @@ export class PostResolver {
   // для этого они должны быть как-то отсортированы (по дате, id...)
   Promise<PaginatedPosts> {
     const realLimit = Math.min(50, limit);
-    const userId = req.session.userId;
+    //const userId = req.session.userId;
 
     const replacements: any[] = [realLimit];
-    userId && replacements.push(userId);
-    let cursorIdx = 3;
+    //userId && replacements.push(userId);
+    //let cursorIdx = 3;
     if (cursor) {
       replacements.push(new Date(parseInt(cursor)));
-      cursorIdx = replacements.length;
+      //cursorIdx = replacements.length;
     }
-    // более новая версия запроса, где мы подтягиваем автора поста через FieldResolver
+    // Ещё более новая версия с dataLoader
     const posts = await getConnection().query(
       `
-        select p.*, 
-        ${
-          req.session.userId
-            ? `(select value from up_doot where "userId" = $2 and "postId" = p.id) "voteStatus"`
-            : 'null as "voteStatus"'
-        } 
+        select p.*
         from post p
-        ${cursor ? `where p."createdAt" < ${cursorIdx}` : ""}
+        ${cursor ? `where p."createdAt" < $2` : ""}
         order by p."createdAt" DESC
         limit $1
     `,
       replacements
     );
+
+    // более новая версия запроса, где мы подтягиваем автора поста через FieldResolver
+    // const posts = await getConnection().query(
+    //   `
+    //     select p.*,
+    //     ${
+    //       req.session.userId
+    //         ? `(select value from up_doot where "userId" = $2 and "postId" = p.id) "voteStatus"`
+    //         : 'null as "voteStatus"'
+    //     }
+    //     from post p
+    //     ${cursor ? `where p."createdAt" < ${cursorIdx}` : ""}
+    //     order by p."createdAt" DESC
+    //     limit $1
+    // `,
+    //   replacements
+    // );
 
     // const posts = await getConnection().query(
     //   `
