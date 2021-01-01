@@ -4,6 +4,7 @@ dist
 /.pnp
 .pnp.js
 server/.env
+server/.env.production
 
 # testing
 /coverage
