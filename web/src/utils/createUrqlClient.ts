@@ -85,7 +85,7 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
     cookie = ctx?.req?.headers?.cookie;
   }
   return {
-    url: "http://localhost:4000/graphql",
+    url: process.env.NEXT_PUBLIC_API_URL as string,
     fetchOptions: {
       credentials: "include" as const,
       headers: cookie
@@ -110,12 +110,12 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
         },
         updates: {
           Mutation: {
-            deletePost: (_result, args, cache, info) => {
+            deletePost: (_result, args, cache, _) => {
               const id = (args as DeletePostMutationVariables).id;
               // этот вызов обнулит (=null) соотв-ий пост в кеше
               cache.invalidate({ __typename: "Post", id });
             },
-            vote: (_result, args, cache, info) => {
+            vote: (_result, args, cache, _) => {
               // здесь мы обновляем кусочек кеша, который содержит votes
               // один из методов, второй - возвращать актуальное значение, а не boolean
               // вероятно в данном случае предпочтительнее второй, чтобы получать актуальное значение, а не просто +1 / -1
