@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import "dotenv-safe/config";
 import express from "express";
 import { ApolloServer } from "apollo-server-express";
 import { buildSchema } from "type-graphql";
@@ -22,12 +23,14 @@ import { createUpdootLoader } from "./utils/createUpdootLoader";
 const main = async () => {
   const conn = await createConnection({
     type: "postgres",
-    database: "lireddit2",
-    username: "postgres",
-    password: "p0$tgre$",
+    // database: "lireddit2",
+    // username: "postgres",
+    // password: "p0$tgre$",
+    url: process.env.DATABASE_URL,
     migrations: [path.join(__dirname, "./migrations/*")],
     logging: true,
-    synchronize: true, // it will create & update tables for you, so you don't need to run migrations
+    // in prod - turn off syncchronize
+    //synchronize: true, // it will create & update tables for you, so you don't need to run migrations
     entities: [Post, User, UpDoot],
   });
 
@@ -39,11 +42,13 @@ const main = async () => {
   const app = express();
 
   const RedisStore = connectRedis(session);
-  const redis = new Redis();
+  const redis = new Redis(process.env.REDIS_URL);
+  app.set("trust proxy", 1); // чтобы cookie работали с nginx
+  // нужно сказать express, что перед ней будет сидеть proxy (nginx)
 
   app.use(
     cors({
-      origin: "http://localhost:3000",
+      origin: process.env.CORS_ORIGIN,
       credentials: true,
     })
   );
@@ -60,9 +65,10 @@ const main = async () => {
         httpOnly: true, // cannot access on frontend from JS
         secure: IS_PROD, // works only in https
         sameSite: "lax",
+        domain: IS_PROD ? ".araperm.online" : undefined,
       },
       saveUninitialized: false,
-      secret: "someSecretKey", // this should be hided in env for example
+      secret: process.env.SESSION_SECRET, // this should be hided in env for example
       resave: false, // csrf-relative
     })
   );
@@ -86,8 +92,8 @@ const main = async () => {
     cors: false,
   });
 
-  app.listen(4000, () => {
-    console.log("server started on localhost:4000");
+  app.listen(parseInt(process.env.PORT), () => {
+    console.log(`server started on PORT:${process.env.PORT}`);
   });
 };
 

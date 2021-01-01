@@ -154,8 +154,8 @@ export class PostResolver {
   @Query(() => PaginatedPosts)
   async posts(
     @Arg("limit", () => Int) limit: number,
-    @Arg("cursor", () => String, { nullable: true }) cursor: string | null,
-    @Ctx() { req }: MyContext
+    @Arg("cursor", () => String, { nullable: true }) cursor: string | null
+    //@Ctx() { req }: MyContext
   ): // идея с курсором - что мы берем посты, после того, на который указывает курсор.
   // для этого они должны быть как-то отсортированы (по дате, id...)
   Promise<PaginatedPosts> {
