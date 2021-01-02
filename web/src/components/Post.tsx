@@ -1,17 +1,63 @@
+import { ApolloCache, gql } from "@apollo/client";
 import { Box, Flex, Heading, IconButton, Link, Text } from "@chakra-ui/core";
 import NextLink from "next/link";
 import React from "react";
-import { PostSnippetFragment, useVoteMutation } from "../generated/graphql";
+import {
+  PostSnippetFragment,
+  useVoteMutation,
+  VoteMutation,
+} from "../generated/graphql";
 import { EditAndDeleteButtons } from "./EditAndDeleteButtons";
 
 interface PostProps {
   post: PostSnippetFragment;
 }
 
+const updateAfterVote = (
+  value: number,
+  postId: number,
+  cache: ApolloCache<VoteMutation>
+) => {
+  const curVoteData = cache.readFragment<PostSnippetFragment>({
+    id: "Post:" + postId,
+    fragment: gql`
+      fragment _ on Post {
+        id
+        points
+        voteStatus
+      }
+    `,
+    variables: { id: postId } as any,
+  });
+
+  if (curVoteData) {
+    if (curVoteData.voteStatus === value) {
+      return;
+    }
+    const newPoints =
+      (curVoteData.points as number) +
+      (!curVoteData.voteStatus ? 1 : 2) * value;
+    cache.writeFragment({
+      id: "Post:" + postId,
+      fragment: gql`
+        fragment __ on Post {
+          id
+          points
+          voteStatus
+        }
+      `,
+      data: {
+        points: newPoints,
+        voteStatus: value,
+      },
+    });
+  }
+};
+
 export const PostComponent: React.FC<PostProps> = ({
   post: { id, author, textSnippet, points, title, voteStatus },
 }) => {
-  const [, vote] = useVoteMutation();
+  const [vote] = useVoteMutation();
 
   if (!id) return null;
   return (
@@ -38,7 +84,10 @@ export const PostComponent: React.FC<PostProps> = ({
               if (voteStatus === 1) {
                 return;
               }
-              await vote({ value: 1, postId: id });
+              await vote({
+                variables: { value: 1, postId: id },
+                update: (cache) => updateAfterVote(1, id, cache),
+              });
             }}
           />
           {points}
@@ -52,7 +101,10 @@ export const PostComponent: React.FC<PostProps> = ({
               if (voteStatus === -1) {
                 return;
               }
-              vote({ value: -1, postId: id });
+              await vote({
+                variables: { value: -1, postId: id },
+                update: (cache) => updateAfterVote(-1, id, cache),
+              });
             }}
           />
         </Box>

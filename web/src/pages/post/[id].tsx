@@ -7,17 +7,16 @@ import {
   Spinner,
   Text,
 } from "@chakra-ui/core";
-import { withUrqlClient } from "next-urql";
 import React from "react";
 import { EditAndDeleteButtons } from "../../components/EditAndDeleteButtons";
 import { Layout } from "../../components/Layout";
-import { createUrqlClient } from "../../utils/createUrqlClient";
 import { usePostIdFromUrl } from "../../utils/usePostIdFromUrl";
+import { withApollo } from "../../utils/withApollo";
 
 const PostPage = () => {
-  const { data, fetching, postId } = usePostIdFromUrl();
+  const { data, loading, postId } = usePostIdFromUrl();
 
-  if (fetching) {
+  if (loading) {
     return (
       <Layout>
         <Spinner />
@@ -48,4 +47,5 @@ const PostPage = () => {
   );
 };
 
-export default withUrqlClient(createUrqlClient, { ssr: true })(PostPage);
+//export default withUrqlClient(createUrqlClient, { ssr: true })(PostPage);
+export default withApollo({ ssr: true })(PostPage);

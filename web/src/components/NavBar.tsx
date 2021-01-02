@@ -3,23 +3,23 @@ import React from "react";
 import NextLink from "next/link";
 import { useLogoutMutation, useMeQuery } from "../generated/graphql";
 import { isServer } from "../utils/isServer";
-import { useRouter } from "next/router";
+import { useApolloClient } from "@apollo/client";
 
 interface NavBarProps {}
 
 export const NavBar: React.FC<NavBarProps> = ({}) => {
-  // опция pause позволяет не выполнять запрос, если она = true
+  // опция skip позволяет не выполнять запрос, если она = true
   // в данном случае мы не хотим выполнять этот запрос на сервере
   // т.к. там нет куки и запрос всегда возвращает null, т.е. он лишний
-  const [{ data, fetching }] = useMeQuery({
-    pause: isServer(),
+  //const router = useRouter();
+  const [logout, { loading: logoutFething }] = useLogoutMutation();
+  const apolloClient = useApolloClient();
+  const { data, loading } = useMeQuery({
+    skip: isServer(),
   });
 
-  const router = useRouter();
-
-  const [{ fetching: logoutFething }, logout] = useLogoutMutation();
   let body = null;
-  if (fetching) {
+  if (loading) {
   } else if (!data?.me) {
     body = (
       <>
@@ -43,7 +43,7 @@ export const NavBar: React.FC<NavBarProps> = ({}) => {
         <Button
           onClick={async () => {
             await logout();
-            router.reload();
+            await apolloClient.resetStore();
           }}
           isLoading={logoutFething}
           variant="link"

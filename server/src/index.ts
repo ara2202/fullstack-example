@@ -21,7 +21,7 @@ import { createUserLoader } from "./utils/createUserLoader";
 import { createUpdootLoader } from "./utils/createUpdootLoader";
 
 const main = async () => {
-  const conn = await createConnection({
+  await createConnection({
     type: "postgres",
     // database: "lireddit2",
     // username: "postgres",
@@ -34,7 +34,7 @@ const main = async () => {
     entities: [Post, User, UpDoot],
   });
 
-  await conn.runMigrations();
+  //await conn.runMigrations();
 
   // rerun
   //await Post.delete({});
