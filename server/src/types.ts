@@ -4,7 +4,7 @@ import { createUpdootLoader } from "./utils/createUpdootLoader";
 import { createUserLoader } from "./utils/createUserLoader";
 
 export type MyContext = {
-  req: Request & { session: Express.Session };
+  req: Request & { session: Express.Session & { userId?: string } };
   redis: Redis;
   res: Response;
   userLoader: ReturnType<typeof createUserLoader>;
